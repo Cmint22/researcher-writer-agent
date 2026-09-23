@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+e2e_output.json
+e2e_output_*.json
+.pytest_cache/
+*.egg-info/
+.DS_Store

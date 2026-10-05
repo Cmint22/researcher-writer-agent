@@ -37,6 +37,12 @@ QUY TẮC BẮT BUỘC (RẤT QUAN TRỌNG):
    đầu dòng khi phù hợp), phù hợp để trình bày cho người dùng cuối.
 5. Không cần liệt kê lại toàn bộ bullet thô — hãy tổng hợp, sắp xếp lại theo chủ đề
    sao cho dễ đọc, nhưng không được thay đổi ý nghĩa hay số liệu gốc trong notes.
+6. Với mỗi thông tin factual được sử dụng trong câu trả lời, phải chèn
+   citation theo dạng `[doc_id]` ngay sau thông tin đó.
+7. `doc_id` phải lấy chính xác từ `source_doc_id` của RESEARCH NOTES.
+   Không được tự tạo, đoán hoặc thay đổi `doc_id`.
+8. Không bỏ citation đối với các thông tin factual, kể cả khi tổng hợp
+   nhiều bullet thành một câu.
 """
 
 WRITER_USER_PROMPT_TEMPLATE = """\

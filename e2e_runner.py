@@ -98,7 +98,7 @@ def run_one(pipeline: ResearchWriterPipeline, query: str, documents: list[Source
         )
         print("  (Writer may have added information beyond what Researcher provided — review manually.)")
     else:
-        print("OK (faithfulness): no ungrounded numeric claims detected.")
+        print("OK (no new data detected beyond the Research Notes.): no ungrounded numeric claims detected.")
 
     return result
 

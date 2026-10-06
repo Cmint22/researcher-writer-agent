@@ -33,7 +33,7 @@ import re
 # Matches a number, optionally with a Vietnamese unit suffix commonly
 # used in these documents (%, đ/đồng, ngày, tháng, giờ, năm, lần).
 _NUMBER_RE = re.compile(
-    r"\d[\d.,]*\s*(?:%|đ(?:ồng)?|ngày|tháng|giờ|năm|lần)?", re.IGNORECASE
+    r"\d[\d.,]*\s*(?:%|đ(?:ồng)?(?!\w)|ngày|tháng|giờ|năm|lần)?", re.IGNORECASE
 )
 
 

@@ -121,8 +121,8 @@ python e2e_runner.py
 ```
 
 Script này sẽ:
-1. Đọc 2 tài liệu trong `documents/*.txt` (chính là 2 file PDF bạn cung cấp,
-   đã được chuyển thành text).
+1. Đọc 2 tài liệu trong `documents/*.txt` (văn bản **giả lập do tác giả tự soạn** để minh họa
+   pipeline, không phải quy định nội bộ của công ty thật).
 2. Chạy pipeline Researcher → Writer.
 3. In ra **Research Notes** và **Final Answer** ra màn hình.
 4. Lưu toàn bộ trace (documents, notes, final answer, chế độ LLM đang dùng)

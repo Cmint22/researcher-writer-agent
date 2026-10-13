@@ -16,7 +16,9 @@ def test_pipeline_end_to_end_with_fake_llm(sample_documents):
     assert result.final_answer.answer.strip() != ""
     # Final answer's cited sources must be a subset of the actual input doc_ids.
     valid_ids = {d.doc_id for d in sample_documents}
-    assert set(result.final_answer.used_sources) <= valid_ids
+    assert set(result.final_answer.cited_sources) <= valid_ids
+    assert set(result.final_answer.available_note_sources) <= valid_ids
+    assert result.citation_warnings == []
 
 
 def test_pipeline_rejects_fewer_than_two_documents(sample_documents):
@@ -134,3 +136,78 @@ def test_pipeline_flags_a_hallucinating_writer(sample_documents):
     result = pipeline.run(query="Thưởng lương tháng 13 và nâng lương quy định ra sao?", documents=sample_documents)
 
     assert any("999" in w for w in result.faithfulness_warnings)
+
+
+def test_hallucinated_number_colliding_with_bullet_index_is_still_flagged(sample_documents):
+    """
+    Regression for a verifier blind spot: the verifier used to receive the
+    numbered/labelled prompt block, so a fabricated "2 ngày" was masked by the
+    "2." bullet index. It now sees bullet text only.
+    """
+
+    class CollidingLLM:
+        def __init__(self):
+            self._fake = FakeLLMClient()
+
+        def chat(self, system_prompt: str, user_prompt: str) -> str:
+            base = self._fake.chat(system_prompt, user_prompt)
+            if "=== DOCUMENT" in user_prompt:
+                return base
+            return base + "\nNgoài ra được nghỉ thêm 2 ngày mỗi quý. [doc1]"
+
+    result = ResearchWriterPipeline(llm_client=CollidingLLM()).run(
+        query="Nghỉ phép và thưởng quy định ra sao?", documents=sample_documents
+    )
+    assert len(result.research_notes.bullets) >= 2
+    assert any("2 ngày" in w for w in result.faithfulness_warnings)
+
+
+def test_pipeline_warns_on_invalid_researcher_label(sample_documents):
+    class BadLabelLLM:
+        def __init__(self):
+            self._fake = FakeLLMClient()
+
+        def chat(self, system_prompt: str, user_prompt: str) -> str:
+            base = self._fake.chat(system_prompt, user_prompt)
+            if "=== DOCUMENT" in user_prompt:
+                return base + "\n[doc999] Một bullet có nhãn nguồn không tồn tại."
+            return base
+
+    result = ResearchWriterPipeline(llm_client=BadLabelLLM()).run(
+        query="Giờ làm việc?", documents=sample_documents
+    )
+    assert any("doc999" in w for w in result.citation_warnings)
+    assert "doc999" not in result.final_answer.available_note_sources
+    assert "unknown" not in result.final_answer.available_note_sources
+
+
+def test_pipeline_warns_when_answer_has_no_citation(sample_documents):
+    class NoCitationLLM:
+        def __init__(self):
+            self._fake = FakeLLMClient()
+
+        def chat(self, system_prompt: str, user_prompt: str) -> str:
+            if "=== DOCUMENT" in user_prompt:
+                return self._fake.chat(system_prompt, user_prompt)
+            return "Câu trả lời không có trích dẫn nguồn nào."
+
+    result = ResearchWriterPipeline(llm_client=NoCitationLLM()).run(
+        query="Giờ làm việc?", documents=sample_documents
+    )
+    assert any("no valid source citation" in w for w in result.citation_warnings)
+
+
+def test_pipeline_warns_on_fake_citation_in_answer(sample_documents):
+    class FakeCitationLLM:
+        def __init__(self):
+            self._fake = FakeLLMClient()
+
+        def chat(self, system_prompt: str, user_prompt: str) -> str:
+            base = self._fake.chat(system_prompt, user_prompt)
+            return base if "=== DOCUMENT" in user_prompt else base + " [doc999]"
+
+    result = ResearchWriterPipeline(llm_client=FakeCitationLLM()).run(
+        query="Giờ làm việc?", documents=sample_documents
+    )
+    assert result.final_answer.invalid_citations == ["doc999"]
+    assert any("doc999" in w for w in result.citation_warnings)

@@ -114,6 +114,19 @@ cp .env.example .env
 pytest -v
 ```
 
+## Kiểm chứng nguồn và số liệu
+
+- **Nhãn nguồn của Researcher** được kiểm tra với tập `doc_id` đầu vào. Nhãn không tồn tại
+  (vd `[doc999]`) hoặc dòng thiếu nhãn được giữ lại với nguồn `unknown` kèm cảnh báo
+  (`ResearchNotes.source_warnings`); `unknown` không bao giờ là citation hợp lệ.
+- **Citation của Writer**: Writer được yêu cầu ghi `[doc_id]` sau mỗi ý. `FinalAnswer` có 3 trường:
+  `available_note_sources` (nguồn có trong notes), `cited_sources` (nguồn thực sự được trích dẫn
+  trong câu trả lời) và `invalid_citations`. Cảnh báo tổng hợp nằm ở `PipelineResult.citation_warnings`.
+- **Verifier số liệu** chỉ nhận phần text của bullet (không số thứ tự, không `[doc_id]`) và so khớp
+  theo cặp *(giá trị, đơn vị)*: `12%` khác `12 tháng`; `8h` = `8h00` = `08:00`;
+  `50.000đ` = `50000 đồng`; `8 triệu` = `8.000.000đ`. Đây vẫn là heuristic, không phải chứng minh
+  tính trung thực (không bắt được thông tin bịa phi số).
+
 ## Chạy E2E (một lệnh duy nhất)
 
 ```bash

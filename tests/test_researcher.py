@@ -62,3 +62,43 @@ def test_researcher_does_not_fabricate_bullets_absent_from_documents(sample_docu
     for b in notes.bullets:
         if b.source_doc_id in docs_by_id:
             assert b.text.strip("-+*• ") in docs_by_id[b.source_doc_id]
+
+
+# --- source label validation ---------------------------------------------------
+from app.agents.researcher import parse_bullets_with_warnings  # noqa: E402
+
+VALID = {"doc1", "doc2"}
+
+
+def test_invalid_label_doc999_is_not_accepted_as_a_source():
+    bullets, warnings = parse_bullets_with_warnings("[doc999] Nghỉ 30 ngày", VALID)
+    assert len(bullets) == 1
+    assert bullets[0].source_doc_id == "unknown"
+    assert len(warnings) == 1 and "doc999" in warnings[0]
+
+
+def test_missing_label_produces_a_warning():
+    bullets, warnings = parse_bullets_with_warnings("Dòng không có nhãn.", VALID)
+    assert bullets[0].source_doc_id == "unknown"
+    assert len(warnings) == 1
+
+
+def test_valid_labels_produce_no_warnings():
+    bullets, warnings = parse_bullets_with_warnings("[doc1] A\n- [doc2] B", VALID)
+    assert [b.source_doc_id for b in bullets] == ["doc1", "doc2"]
+    assert warnings == []
+
+
+def test_without_valid_ids_labels_are_not_validated_backward_compat():
+    bullets = _parse_bullets("[whatever] A")
+    assert bullets[0].source_doc_id == "whatever"
+
+
+def test_researcher_agent_records_source_warnings(sample_documents):
+    class BadLLM:
+        def chat(self, system_prompt, user_prompt):
+            return "[doc1] Giờ làm việc 8h-12h\n[doc999] Bịa\nKhông nhãn"
+
+    notes = ResearcherAgent(BadLLM()).run("q", sample_documents)
+    assert [b.source_doc_id for b in notes.bullets] == ["doc1", "unknown", "unknown"]
+    assert len(notes.source_warnings) == 2

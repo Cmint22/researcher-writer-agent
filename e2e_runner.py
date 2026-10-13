@@ -90,7 +90,13 @@ def run_one(pipeline: ResearchWriterPipeline, query: str, documents: list[Source
     print(result.final_answer.answer)
 
     print("\n" + "-" * 80)
-    print(f"Sources referenced: {result.final_answer.used_sources}")
+    fa = result.final_answer
+    print(f"Sources available in notes : {fa.available_note_sources}")
+    print(f"Sources cited in answer    : {fa.cited_sources}")
+    if result.citation_warnings:
+        print("WARNING (citations):")
+        for w in result.citation_warnings:
+            print(f"  - {w}")
     if result.faithfulness_warnings:
         print(
             "WARNING (faithfulness): numeric claims in the answer not traceable "
@@ -98,7 +104,7 @@ def run_one(pipeline: ResearchWriterPipeline, query: str, documents: list[Source
         )
         print("  (Writer may have added information beyond what Researcher provided — review manually.)")
     else:
-        print("OK (no new data detected beyond the Research Notes.): no ungrounded numeric claims detected.")
+        print("OK (faithfulness): no ungrounded numeric claims detected.")
 
     return result
 
@@ -144,7 +150,7 @@ def main() -> None:
     for i, query in enumerate(queries, start=1):
         print(f"\n{'#' * 80}\n# QUERY {i}/{len(queries)}\n{'#' * 80}")
         result = run_one(pipeline, query, documents)
-        any_warnings = any_warnings or bool(result.faithfulness_warnings)
+        any_warnings = any_warnings or bool(result.faithfulness_warnings or result.citation_warnings)
 
         out_path = out_dir / ("e2e_output.json" if i == 1 else f"e2e_output_{i}.json")
         out_path.write_text(result.model_dump_json(indent=2), encoding="utf-8")
@@ -153,7 +159,7 @@ def main() -> None:
     print("\n" + "=" * 80)
     print(f"DONE — {len(queries)} quer{'y' if len(queries) == 1 else 'ies'} run.")
     if any_warnings:
-        print("At least one run had faithfulness warnings — see above / trace files.")
+        print("At least one run had faithfulness/citation warnings — see above / trace files.")
         sys.exit(1)
     print("All runs passed the automated faithfulness check.")
 

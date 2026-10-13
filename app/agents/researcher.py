@@ -13,7 +13,7 @@ hand-off artifact to the Writer.
 from __future__ import annotations
 
 from app.llm_client import LLMClient
-from app.schemas import ResearchBullet, ResearchNotes, SourceDocument
+from app.schemas import UNKNOWN_SOURCE, ResearchBullet, ResearchNotes, SourceDocument
 
 RESEARCHER_SYSTEM_PROMPT = """\
 Bạn là RESEARCHER AGENT trong một hệ thống multi-agent.
@@ -56,24 +56,47 @@ def _render_documents_block(documents: list[SourceDocument]) -> str:
     return "\n\n".join(blocks)
 
 
-def _parse_bullets(raw_text: str) -> list[ResearchBullet]:
-    """Parse '[doc_id] bullet text' lines returned by the LLM into ResearchBullet objects."""
+def parse_bullets_with_warnings(
+    raw_text: str, valid_doc_ids: set[str] | None = None
+) -> tuple[list[ResearchBullet], list[str]]:
+    """
+    Parse '[doc_id] bullet text' lines returned by the LLM.
+
+    If `valid_doc_ids` is given, a label that is not one of them (e.g. a made-up
+    "[doc999]") is NOT accepted as a citation: the bullet is kept but its source
+    becomes UNKNOWN_SOURCE and a warning is recorded. Lines with no label at all
+    are handled the same way. Without `valid_doc_ids`, labels are not validated.
+    """
     bullets: list[ResearchBullet] = []
+    warnings: list[str] = []
     for line in raw_text.splitlines():
         line = line.strip().lstrip("-•*").strip()
         if not line:
             continue
+        label = None
+        text = line
         if line.startswith("[") and "]" in line:
-            doc_id, _, text = line.partition("]")
-            doc_id = doc_id.lstrip("[").strip()
-            text = text.strip()
-            if text:
-                bullets.append(ResearchBullet(text=text, source_doc_id=doc_id))
-        else:
-            # Line without a source tag — still keep it, but mark source as unknown
-            # rather than silently dropping potentially useful content.
-            bullets.append(ResearchBullet(text=line, source_doc_id="unknown"))
-    return bullets
+            head, _, rest = line.partition("]")
+            label, text = head.lstrip("[").strip(), rest.strip()
+            if not text:
+                continue
+        preview = text[:60]
+        if label is None:
+            warnings.append(f"Bullet without a source label (kept as '{UNKNOWN_SOURCE}'): {preview!r}")
+            label = UNKNOWN_SOURCE
+        elif valid_doc_ids is not None and label not in valid_doc_ids:
+            warnings.append(
+                f"Bullet labelled with unknown source [{label}] "
+                f"(not in input documents; kept as '{UNKNOWN_SOURCE}'): {preview!r}"
+            )
+            label = UNKNOWN_SOURCE
+        bullets.append(ResearchBullet(text=text, source_doc_id=label))
+    return bullets, warnings
+
+
+def _parse_bullets(raw_text: str, valid_doc_ids: set[str] | None = None) -> list[ResearchBullet]:
+    """Backward-compatible wrapper returning only the bullets."""
+    return parse_bullets_with_warnings(raw_text, valid_doc_ids)[0]
 
 
 class ResearcherAgent:
@@ -91,5 +114,7 @@ class ResearcherAgent:
             documents_block=_render_documents_block(documents),
         )
         raw_output = self._llm.chat(RESEARCHER_SYSTEM_PROMPT, user_prompt)
-        bullets = _parse_bullets(raw_output)
-        return ResearchNotes(query=query, bullets=bullets)
+        bullets, warnings = parse_bullets_with_warnings(
+            raw_output, valid_doc_ids={d.doc_id for d in documents}
+        )
+        return ResearchNotes(query=query, bullets=bullets, source_warnings=warnings)

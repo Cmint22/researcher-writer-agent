@@ -15,7 +15,8 @@ CRITICAL ARCHITECTURAL CONSTRAINT:
 from __future__ import annotations
 
 from app.llm_client import LLMClient
-from app.schemas import FinalAnswer, ResearchNotes
+from app.citations import extract_citations
+from app.schemas import UNKNOWN_SOURCE, FinalAnswer, ResearchNotes
 
 WRITER_SYSTEM_PROMPT = """\
 Bạn là WRITER AGENT trong một hệ thống multi-agent.
@@ -37,12 +38,8 @@ QUY TẮC BẮT BUỘC (RẤT QUAN TRỌNG):
    đầu dòng khi phù hợp), phù hợp để trình bày cho người dùng cuối.
 5. Không cần liệt kê lại toàn bộ bullet thô — hãy tổng hợp, sắp xếp lại theo chủ đề
    sao cho dễ đọc, nhưng không được thay đổi ý nghĩa hay số liệu gốc trong notes.
-6. Với mỗi thông tin factual được sử dụng trong câu trả lời, phải chèn
-   citation theo dạng `[doc_id]` ngay sau thông tin đó.
-7. `doc_id` phải lấy chính xác từ `source_doc_id` của RESEARCH NOTES.
-   Không được tự tạo, đoán hoặc thay đổi `doc_id`.
-8. Không bỏ citation đối với các thông tin factual, kể cả khi tổng hợp
-   nhiều bullet thành một câu.
+6. Sau mỗi ý, ghi nhãn nguồn ở dạng [doc_id] lấy ĐÚNG từ nhãn trong RESEARCH NOTES
+   (ví dụ [doc1]). KHÔNG tự tạo nhãn nguồn không có trong notes.
 """
 
 WRITER_USER_PROMPT_TEMPLATE = """\
@@ -71,5 +68,12 @@ class WriterAgent:
             notes_block=notes.as_prompt_block(),
         )
         answer_text = self._llm.chat(WRITER_SYSTEM_PROMPT, user_prompt)
-        used_sources = sorted({b.source_doc_id for b in notes.bullets})
-        return FinalAnswer(query=notes.query, answer=answer_text, used_sources=used_sources)
+        available = sorted({b.source_doc_id for b in notes.bullets} - {UNKNOWN_SOURCE})
+        cited_in_text = extract_citations(answer_text)
+        return FinalAnswer(
+            query=notes.query,
+            answer=answer_text,
+            available_note_sources=available,
+            cited_sources=[c for c in cited_in_text if c in available],
+            invalid_citations=[c for c in cited_in_text if c not in available],
+        )

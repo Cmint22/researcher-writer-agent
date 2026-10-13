@@ -53,10 +53,21 @@ class ResearchWriterPipeline:
         # Step 3: automated faithfulness check. This is a code-level safety
         # net on top of the Writer's prompt instruction — see app/verifier.py.
         # It can catch fabricated numbers the prompt alone did not prevent.
+        # Only the bullet TEXT is given to the verifier: the numbered/labelled
+        # prompt block would let "1." or "[doc1]" mask a fabricated "1".
         warnings = find_ungrounded_numeric_claims(
             answer=final_answer.answer,
-            notes_text=notes.as_prompt_block(),
+            notes_text=notes.plain_text(),
         )
+
+        # Step 4: source/citation checks.
+        citation_warnings = list(notes.source_warnings)
+        if final_answer.invalid_citations:
+            citation_warnings.append(
+                f"Answer cites sources that are not in the Research Notes: {final_answer.invalid_citations}"
+            )
+        if final_answer.available_note_sources and not final_answer.cited_sources:
+            citation_warnings.append("Answer contains no valid source citation [doc_id].")
 
         return PipelineResult(
             query=query,
@@ -64,5 +75,6 @@ class ResearchWriterPipeline:
             research_notes=notes,
             final_answer=final_answer,
             llm_mode=self._llm_mode,
+            citation_warnings=citation_warnings,
             faithfulness_warnings=warnings,
         )

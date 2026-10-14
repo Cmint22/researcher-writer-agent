@@ -77,11 +77,10 @@ def test_pipeline_result_documents_field_reflects_input_but_is_separate_from_wri
 
 # --- Coverage across multiple, distinct queries -----------------------------
 #
-# A single "does it run once" E2E check is not enough to trust that the
-# pipeline generalizes. These queries exercise different subsets of the two
-# real source documents (giờ làm việc / nghỉ phép vs. lương / thưởng) to
-# confirm Researcher -> Writer grounding holds across varied questions, not
-# just the one default query used by e2e_runner.py.
+# These queries exercise different subsets of the two source documents
+# (giờ làm việc / nghỉ phép vs. lương / thưởng) with the offline test double,
+# to check the Researcher -> Writer path behaves consistently across varied
+# questions. This is an illustration, not a generalization claim.
 MULTI_QUERY_CASES = [
     "Giờ làm việc hàng ngày và ngày làm việc trong tuần được quy định thế nào?",
     "Quy định về nghỉ phép, nghỉ ốm và thủ tục xin nghỉ là gì?",

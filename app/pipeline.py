@@ -26,6 +26,7 @@ from app.agents.researcher import ResearcherAgent
 from app.agents.writer import WriterAgent
 from app.llm_client import LLMClient, get_llm_client
 from app.schemas import PipelineResult, SourceDocument
+from app.source_check import check_source_labels
 from app.verifier import find_ungrounded_numeric_claims
 
 
@@ -62,6 +63,9 @@ class ResearchWriterPipeline:
 
         # Step 4: source/citation checks.
         citation_warnings = list(notes.source_warnings)
+        # The pipeline (not the Writer) holds the documents, so it can check
+        # that each bullet's text really comes from the document it cites.
+        citation_warnings += check_source_labels(notes, documents)
         if final_answer.invalid_citations:
             citation_warnings.append(
                 f"Answer cites sources that are not in the Research Notes: {final_answer.invalid_citations}"

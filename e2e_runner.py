@@ -19,8 +19,9 @@ What it does:
        e2e_output_3.json, ... for additional ones).
 
 By default this runs several DIFFERENT queries against the same 2
-documents (not just one), to demonstrate the pipeline actually
-generalizes rather than being tuned to a single question. Pass
+documents (not just one), to illustrate the pipeline running on
+several kinds of question over the same small set of documents (this is an
+illustration, not evidence of generalization). Pass
 --query to run just one (custom) question instead.
 """
 from __future__ import annotations
@@ -36,8 +37,8 @@ from app.schemas import PipelineResult, SourceDocument
 DOCUMENTS_DIR = Path(__file__).parent / "documents"
 
 # Several distinct queries, each targeting a different slice of the two
-# documents, run by default so a single E2E command demonstrates
-# generalization instead of one hand-picked question.
+# documents, so a single E2E command exercises more than one hand-picked
+# question (illustration only, not a benchmark).
 DEMO_QUERIES = [
     "Tóm tắt các quy định chính về giờ làm việc, nghỉ phép/nghỉ ốm, và các chế độ "
     "lương thưởng (bao gồm lương tháng 13, nâng lương, làm thêm giờ) áp dụng cho "
@@ -104,7 +105,8 @@ def run_one(pipeline: ResearchWriterPipeline, query: str, documents: list[Source
         )
         print("  (Writer may have added information beyond what Researcher provided — review manually.)")
     else:
-        print("OK (faithfulness): no ungrounded numeric claims detected.")
+        print("OK: không phát hiện số liệu mới ngoài Research Notes.")
+        print("  (Chỉ kiểm tra số liệu so với notes; không kiểm tra claim phi số hay notes so với tài liệu gốc.)")
 
     return result
 

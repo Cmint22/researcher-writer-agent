@@ -136,3 +136,34 @@ def test_unit_added_in_answer_is_flagged_but_bare_number_in_answer_is_accepted()
     assert find_ungrounded_numeric_claims("Nghỉ 7 ngày", "Làm Thứ 7") == ["7 ngày"]
     # A bare number in the answer is accepted if the value appears in the notes.
     assert find_ungrounded_numeric_claims("Làm Thứ 7", "Nghỉ 7 ngày") == []
+
+
+# --- markdown headings & the formats called out in review round 2 -----------------
+def test_markdown_heading_numbers_are_not_numeric_claims():
+    # Seen in a real run: "## 1. Giờ làm việc" was reported as an ungrounded "1".
+    answer = "## 1. Giờ làm việc\n## 2. Nghỉ phép\n### 3. Lương\n**4.** Hết\n> 5. Trích dẫn"
+    assert find_ungrounded_numeric_claims(answer, "Giờ làm việc, nghỉ phép, lương") == []
+
+
+def test_a_real_number_after_a_heading_number_is_still_checked():
+    assert find_ungrounded_numeric_claims("## 1. Nghỉ 15 ngày", "Giờ làm việc") == ["15 ngày"]
+
+
+def test_time_20_00_is_a_time_not_money():
+    assert find_ungrounded_numeric_claims("Tan làm lúc 20:00 đến 21:00", "Tan làm 20h đến 21h") == []
+    assert find_ungrounded_numeric_claims("Tan làm lúc 20:00", "Tan làm 20.000đ") == ["20:00"]
+
+
+def test_money_20000_dong_is_not_time():
+    assert find_ungrounded_numeric_claims("Phạt 20.000đ", "Phạt 20.000 đồng") == []
+    assert find_ungrounded_numeric_claims("Phạt 20.000đ", "Làm đến 20:00") == ["20.000đ"]
+
+
+def test_percent_and_decimal_percent():
+    assert find_ungrounded_numeric_claims("Tăng 12,5%", "Tăng 12.5 %") == []
+    assert find_ungrounded_numeric_claims("Tăng 12,5%", "Tăng 125%") == ["12,5%"]
+
+
+def test_dates_are_compared_by_their_numbers():
+    assert find_ungrounded_numeric_claims("Đến hết 31/03 năm sau", "Đến hết ngày 31/03") == []
+    assert find_ungrounded_numeric_claims("Đến hết 30/04", "Đến hết ngày 31/03") == ["30/04"]

@@ -14,6 +14,7 @@ pair also appears in the Research Notes.
 What is normalized (so harmless re-formatting does not raise a warning):
   - leading zeros / thousand separators:  "05" == "5",  "50.000" == "50000"
   - clock times:  "8h" == "8h00" == "08:00"   (unit = "time")
+  - dates:        "31/03" == "31/3"            (one claim, not "31" + "03 năm")
   - money:        "50.000đ" == "50000 đồng";  "8 triệu" == "8.000.000đ"
 
 What is deliberately NOT collapsed (these used to be silently accepted):
@@ -63,6 +64,7 @@ _CLAIM_RE = re.compile(
     rf"""(?<!\w)(?:
         (?P<h>\d{{1,2}})h(?P<hm>\d{{2}})?(?!\w)                # 8h, 8h00, 13h30
       | (?P<c>\d{{1,2}}):(?P<cm>\d{{2}})(?!\d)                 # 08:00
+      | (?P<date>\d{{1,2}}/\d{{1,2}}(?:/\d{{2,4}})?)(?!\d)     # 31/03, 31/03/2026
       | (?P<num>{_NUMBER})
         (?:[ \t]*(?:
               (?P<scale>{_scale_alt})(?!\w)
@@ -74,8 +76,12 @@ _CLAIM_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-# "1. ", "2) ", "- 3. " at the start of a line are list numbering, not facts.
-_LIST_MARKER_RE = re.compile(r"^[ \t]*(?:[-*•+][ \t]*)?\d+[.)][ \t]+", re.MULTILINE)
+# "1. ", "2) ", "- 3. " at the start of a line are list/section numbering, not facts.
+# Also handles markdown decoration: "## 1. Tiêu đề", "> 2. ...", "**3.** ...".
+_LIST_MARKER_RE = re.compile(
+    r"^[ \t]*(?:#{1,6}[ \t]+|>[ \t]*)?(?:[-*•+][ \t]*)?(?:\*\*)?\d+[.)](?:\*\*)?[ \t]+",
+    re.MULTILINE,
+)
 
 Claim = tuple[str, str]  # (normalized value, unit class or "")
 
@@ -107,7 +113,9 @@ def extract_numeric_claims(text: str) -> dict[Claim, str]:
     claims: dict[Claim, str] = {}
     for m in _CLAIM_RE.finditer(_clean(text)):
         raw = m.group().strip()
-        if m.group("h") is not None or m.group("c") is not None:
+        if m.group("date") is not None:
+            key = ("/".join(str(int(p)) for p in m.group("date").split("/")), "date")
+        elif m.group("h") is not None or m.group("c") is not None:
             hh = int(m.group("h") or m.group("c"))
             mm = int(m.group("hm") or m.group("cm") or 0)
             key: Claim = (str(hh * 60 + mm), "time")
